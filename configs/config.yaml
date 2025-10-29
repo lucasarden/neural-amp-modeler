@@ -1,0 +1,36 @@
+# Data settings
+data:
+  sample_rate: 44100
+  input_file: "data/raw/flstudio_test1_in.wav"
+  output_file: "data/raw/flstudio_test1_out.wav"
+  segment_length: 8192 # samples per training segment
+  train_split: 0.85
+  val_split: 0.15
+
+# Model architecture
+model:
+  name: "flstudio_test" # This will be the folder name under models/
+  channels: 16
+  num_layers: 10
+  kernel_size: 3
+  dilation_base: 2 # dilation pattern: 2^i
+
+# Training settings
+training:
+  batch_size: 16
+  num_epochs: 200
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  patience: 20 # early stopping patience
+  checkpoint_every: 10 # save checkpoint every N epochs
+
+# Loss function
+loss:
+  type: "esr" # error-to-signal ratio
+
+# Paths
+paths:
+  model_dir: "models/{model_name}" # Will be formatted with model name
+  checkpoint_dir: "models/{model_name}/checkpoints"
+  best_model: "models/{model_name}/best_model.pt"
+  tensorboard_dir: "runs/{model_name}"

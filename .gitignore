@@ -1,0 +1,46 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Data files (audio can be huge)
+data/raw/*.wav
+data/processed/*.wav
+*.h5
+*.hdf5
+
+# Model checkpoints (can be large)
+models/*/checkpoints/*.pt
+models/*/checkpoints/*.pth
+!models/*/best_model.pt    
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+runs/  # tensorboard logs
+
+# Generated test outputs
+test_output.wav
+*_processed.wav
+waveform_comparison.png
+comparison.png
