@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 from model import WaveNetAmp
 from dataset import AmpDataset
+from export_plugin_weights import export_for_plugin
 
 
 def load_config(config_path="configs/config.yaml"):
@@ -110,8 +111,17 @@ def validate(model, dataloader, device):
 
 
 def main():
+    import sys
+
+    # Parse command line arguments for config file
+    config_path = "configs/config.yaml"
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--config" and len(sys.argv) > 2:
+            config_path = sys.argv[2]
+
     # Load config
-    config = load_config()
+    print(f"Loading config from: {config_path}")
+    config = load_config(config_path)
 
     # Setup directories
     model_dir, checkpoint_dir, tensorboard_dir = setup_directories(config)
@@ -144,21 +154,36 @@ def main():
 
     # Initialize model
     print("\nInitializing model...")
+    causal = config['model'].get('causal', False)  # Default to False for backward compatibility
     model = WaveNetAmp(
         channels=config['model']['channels'],
         num_layers=config['model']['num_layers'],
         kernel_size=config['model']['kernel_size'],
-        dilation_base=config['model']['dilation_base']
+        dilation_base=config['model']['dilation_base'],
+        causal=causal
     ).to(device)
 
+    print(f"Model type: {'Causal (Real-time)' if causal else 'Non-causal (Offline)'}")
     print(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     print(f"Receptive field: {model.receptive_field()} samples")
+    if causal:
+        latency_ms = model.receptive_field() / config['data']['sample_rate'] * 1000
+        print(f"Latency: {latency_ms:.2f}ms @ {config['data']['sample_rate']}Hz")
 
     # Optimizer
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=config['training']['learning_rate'],
         weight_decay=config['training']['weight_decay']
+    )
+
+    # Learning rate scheduler - reduces LR when validation loss plateaus
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode='min',
+        factor=0.7,        # Reduce LR by 30% when plateau detected (gentler)
+        patience=15,       # Wait 15 epochs before reducing (more patient)
+        min_lr=1e-6       # Don't go below this
     )
 
     # TensorBoard writer
@@ -182,10 +207,15 @@ def main():
         val_loss = validate(model, val_loader, device)
         print(f"  Val Loss:   {val_loss:.6f}")
 
+        # Update learning rate based on validation loss
+        scheduler.step(val_loss)
+        current_lr = optimizer.param_groups[0]['lr']
+        print(f"  Learning Rate: {current_lr:.2e}")
+
         # Log to TensorBoard
         writer.add_scalar('Loss/train', train_loss, epoch)
         writer.add_scalar('Loss/val', val_loss, epoch)
-        writer.add_scalar('Learning_rate', optimizer.param_groups[0]['lr'], epoch)
+        writer.add_scalar('Learning_rate', current_lr, epoch)
 
         # Save checkpoint every N epochs
         if (epoch + 1) % config['training']['checkpoint_every'] == 0:
@@ -197,6 +227,17 @@ def main():
             best_model_path = os.path.join(model_dir, "best_model.pt")
             torch.save(model.state_dict(), best_model_path)
             print(f"  [*] New best model! (val_loss: {val_loss:.6f})")
+
+            # Auto-export for VST plugin (only if causal)
+            if causal:
+                json_path = os.path.join(model_dir, f"{config['model']['name']}.json")
+                print(f"  [*] Auto-exporting for VST plugin...")
+                try:
+                    export_for_plugin(best_model_path, config_path, json_path)
+                    print(f"  [*] VST plugin export: {json_path}")
+                except Exception as e:
+                    print(f"  [!] Export failed: {e}")
+
             patience_counter = 0
         else:
             patience_counter += 1

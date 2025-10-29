@@ -14,6 +14,7 @@ model:
   num_layers: 10
   kernel_size: 3
   dilation_base: 2 # dilation pattern: 2^i
+  causal: false # Set to true for real-time models (no future samples)
 
 # Training settings
 training:

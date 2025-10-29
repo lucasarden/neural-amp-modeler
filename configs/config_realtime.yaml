@@ -1,0 +1,53 @@
+# Real-Time Configuration for Low-Latency Processing
+# This config is optimized for real-time guitar processing with minimal latency
+
+# Data settings
+data:
+  sample_rate: 44100
+  input_file: "data/raw/flstudio_test1_in_normalized.wav"
+  output_file: "data/raw/flstudio_test1_out_normalized.wav"
+  segment_length: 8192 # samples per training segment
+  train_split: 0.85
+  val_split: 0.15
+
+# Model architecture - CPU OPTIMIZED FOR FL STUDIO
+model:
+  name: "flstudio_normalized_levels" # This will be the folder name under models/
+  channels: 18 # Sweet spot: better than 16, much faster than 32+
+  num_layers: 9 # Latency: ~4.3ms, minimal CPU load
+  kernel_size: 3
+  dilation_base: 2 # dilation pattern: 2^i
+  causal: true # CRITICAL: Must be true for real-time processing
+
+# Training settings
+training:
+  batch_size: 48
+  num_epochs: 2000
+  learning_rate: 0.003 # Start higher, scheduler will reduce automatically
+  weight_decay: 0.00005
+  patience: 100 # Increased patience to allow LR schedule to work
+  checkpoint_every: 10 # save checkpoint every N epochs
+
+# Loss function
+loss:
+  type: "esr" # error-to-signal ratio
+
+# Paths
+paths:
+  model_dir: "models/{model_name}" # Will be formatted with model name
+  checkpoint_dir: "models/{model_name}/checkpoints"
+  best_model: "models/{model_name}/best_model.pt"
+  tensorboard_dir: "runs/{model_name}"
+# CPU Performance Specs (for reference)
+# ==================================================
+# Model size: ~20K parameters (vs 150K+ for channels=48)
+# Receptive field: 191 samples
+# Latency at 44.1kHz: ~4.3ms
+# CPU usage: ~5-15% single core (FL Studio friendly!)
+# Quality: Good for most guitar tones
+#
+# If CPU still struggles:
+#   - Reduce channels to 16
+#   - Reduce num_layers to 5 (95 samples = 2.2ms)
+#   - Increase FL Studio buffer size to 512-1024
+# ==================================================

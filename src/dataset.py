@@ -46,9 +46,13 @@ class AmpDataset(Dataset):
             self.output_audio
         ), "Input and output audio must be same length"
 
-        # Normalize to [-1, 1]
-        self.input_audio = self.normalize(self.input_audio)
-        self.output_audio = self.normalize(self.output_audio)
+        # Normalize using the SAME scale factor to preserve gain relationship
+        # Find max of both signals and use that for scaling
+        max_val = max(np.abs(self.input_audio).max(), np.abs(self.output_audio).max())
+        if max_val > 0:
+            self.input_audio = self.input_audio / max_val
+            self.output_audio = self.output_audio / max_val
+            print(f"Normalized both signals by max value: {max_val:.6f}")
 
         # Calculate number of segments
         self.num_segments = len(self.input_audio) // segment_length
