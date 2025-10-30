@@ -32,7 +32,7 @@ def export_for_plugin(model_path, config_path, output_path):
 
     # Check if causal
     if not config["model"].get("causal", False):
-        print("❌ ERROR: Model must be causal for real-time VST plugin")
+        print("[X] ERROR: Model must be causal for real-time VST plugin")
         print("   Use config_realtime.yaml or set causal: true and retrain")
         return False
 
@@ -46,15 +46,22 @@ def export_for_plugin(model_path, config_path, output_path):
         causal=True,
     )
 
-    model.load_state_dict(torch.load(model_path, map_location="cpu"))
+    # Load checkpoint - handle both old and new formats
+    checkpoint = torch.load(model_path, map_location="cpu")
+    if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+        # New format from multi_train.py (with metadata)
+        model.load_state_dict(checkpoint['model_state_dict'])
+    else:
+        # Old format (direct state_dict)
+        model.load_state_dict(checkpoint)
     model.eval()
 
     receptive_field = model.receptive_field()
     latency_ms = receptive_field / config["data"]["sample_rate"] * 1000
 
-    print(f"   ✓ Parameters: {sum(p.numel() for p in model.parameters()):,}")
-    print(f"   ✓ Receptive field: {receptive_field} samples")
-    print(f"   ✓ Latency: {latency_ms:.2f}ms @ {config['data']['sample_rate']}Hz")
+    print(f"   [OK] Parameters: {sum(p.numel() for p in model.parameters()):,}")
+    print(f"   [OK] Receptive field: {receptive_field} samples")
+    print(f"   [OK] Latency: {latency_ms:.2f}ms @ {config['data']['sample_rate']}Hz")
 
     # Extract weights
     print(f"[3/5] Extracting weights and biases...")
@@ -129,12 +136,12 @@ def export_for_plugin(model_path, config_path, output_path):
     assert len(loaded["weights"]["residual_blocks"]) == config["model"]["num_layers"]
 
     print("\n" + "=" * 60)
-    print("✅ Export Complete!")
+    print("[OK] Export Complete!")
     print("=" * 60)
-    print(f"\n📁 Output file: {output_path}")
-    print(f"📊 File size: {file_size_kb:.1f} KB")
-    print(f"🎛️  Latency: {latency_ms:.2f}ms")
-    print(f"🔢 Parameters: {sum(p.numel() for p in model.parameters()):,}")
+    print(f"\nOutput file: {output_path}")
+    print(f"File size: {file_size_kb:.1f} KB")
+    print(f"Latency: {latency_ms:.2f}ms")
+    print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
     print("\n" + "=" * 60)
     print("Next Steps:")
     print("=" * 60)

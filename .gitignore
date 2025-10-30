@@ -20,7 +20,9 @@ data/processed/*.wav
 # Model checkpoints (can be large)
 models/*/checkpoints/*.pt
 models/*/checkpoints/*.pth
-!models/*/best_model.pt    
+!models/*/best_model.pt
+# But ignore best_model.pt for search models
+models/search_*/best_model.pt    
 
 # Jupyter
 .ipynb_checkpoints/
@@ -38,6 +40,18 @@ Thumbs.db
 logs/
 *.log
 runs/  # tensorboard logs
+
+# Neural Architecture Search
+# Ignore all search-related directories and their contents
+configs/search
+results
+runs/search
+# Search model directories and files
+models/search_*/
+models/search_*/*.pt
+models/search_*/*.pth
+models/search_*/*.json
+models/search_*/*.onnx
 
 # Generated test outputs
 test_output.wav

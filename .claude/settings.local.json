@@ -3,7 +3,12 @@
     "allow": [
       "Bash(dir:*)",
       "Bash(cmake --build:*)",
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(python src/search_space.py:*)",
+      "Bash(venv/Scripts/python:*)",
+      "Bash(git add:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

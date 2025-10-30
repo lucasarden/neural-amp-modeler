@@ -62,19 +62,19 @@ def batch_export_models(models_dir="models", configs_dir="configs", force_config
 
     models_path = Path(models_dir)
     if not models_path.exists():
-        print(f"❌ Error: Models directory not found: {models_dir}")
+        print(f"[X] Error: Models directory not found: {models_dir}")
         return
 
     # Find all model directories
     model_dirs = [d for d in models_path.iterdir() if d.is_dir()]
 
     if not model_dirs:
-        print(f"❌ No model directories found in {models_dir}")
+        print(f"[X] No model directories found in {models_dir}")
         return
 
     print(f"Found {len(model_dirs)} model directories:")
     for d in model_dirs:
-        print(f"  • {d.name}")
+        print(f"  - {d.name}")
     print()
 
     # Export each model
@@ -94,7 +94,7 @@ def batch_export_models(models_dir="models", configs_dir="configs", force_config
 
         # Check if model file exists
         if not model_file.exists():
-            print(f"  ⚠️  Skipped: No best_model.pt found")
+            print(f"  [SKIP] No best_model.pt found")
             results["skipped"].append((model_name, "No best_model.pt"))
             print()
             continue
@@ -108,7 +108,7 @@ def batch_export_models(models_dir="models", configs_dir="configs", force_config
             if config_path:
                 print(f"  Found config: {config_path}")
             else:
-                print(f"  ⚠️  Skipped: Could not find matching config")
+                print(f"  [SKIP] Could not find matching config")
                 print(f"     Run with --config to specify config manually")
                 results["skipped"].append((model_name, "No matching config"))
                 print()
@@ -119,7 +119,7 @@ def batch_export_models(models_dir="models", configs_dir="configs", force_config
             config = yaml.safe_load(f)
 
         if not config.get("model", {}).get("causal", False):
-            print(f"  ⚠️  Skipped: Model is not causal (cannot use for real-time VST)")
+            print(f"  [SKIP] Model is not causal (cannot use for real-time VST)")
             print(f"     Only causal models can be exported for VST plugins")
             results["skipped"].append((model_name, "Not causal"))
             print()
@@ -137,14 +137,14 @@ def batch_export_models(models_dir="models", configs_dir="configs", force_config
 
             if success:
                 results["success"].append((model_name, str(output_path)))
-                print(f"  ✅ Exported: {output_path}")
+                print(f"  [OK] Exported: {output_path}")
             else:
                 results["failed"].append((model_name, "Export function returned False"))
-                print(f"  ❌ Failed to export")
+                print(f"  [X] Failed to export")
 
         except Exception as e:
             results["failed"].append((model_name, str(e)))
-            print(f"  ❌ Export failed: {e}")
+            print(f"  [X] Export failed: {e}")
 
         print()
 
@@ -154,21 +154,21 @@ def batch_export_models(models_dir="models", configs_dir="configs", force_config
     print("=" * 80)
     print()
 
-    print(f"✅ Successfully exported: {len(results['success'])}")
+    print(f"[OK] Successfully exported: {len(results['success'])}")
     for model_name, output_path in results["success"]:
-        print(f"   • {model_name} → {output_path}")
+        print(f"   - {model_name} -> {output_path}")
     print()
 
     if results["skipped"]:
-        print(f"⚠️  Skipped: {len(results['skipped'])}")
+        print(f"[SKIP] Skipped: {len(results['skipped'])}")
         for model_name, reason in results["skipped"]:
-            print(f"   • {model_name}: {reason}")
+            print(f"   - {model_name}: {reason}")
         print()
 
     if results["failed"]:
-        print(f"❌ Failed: {len(results['failed'])}")
+        print(f"[X] Failed: {len(results['failed'])}")
         for model_name, error in results["failed"]:
-            print(f"   • {model_name}: {error}")
+            print(f"   - {model_name}: {error}")
         print()
 
     print("=" * 80)

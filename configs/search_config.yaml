@@ -1,0 +1,95 @@
+# Multi-Model Neural Architecture Search Configuration
+# This config defines the search space and training strategy for finding
+# optimal model architectures balancing quality, latency, and CPU efficiency
+
+# Base data settings (inherited by all model configs)
+data:
+  sample_rate: 44100
+  input_file: "data/raw/flstudio_test1_in_normalized.wav"
+  output_file: "data/raw/flstudio_test1_out_normalized.wav"
+  segment_length: 8192
+  train_split: 0.85
+  val_split: 0.15
+
+# Search space definition
+search_space:
+  # Layer counts to explore (affects latency exponentially)
+  num_layers: [5, 6, 7, 8, 9, 10]
+  # Latencies @ 44.1kHz (kernel=3, dilation=2):
+  #   5 layers: 2.15ms (95 samples)
+  #   6 layers: 4.33ms (191 samples)
+  #   7 layers: 8.68ms (383 samples)
+  #   8 layers: 17.4ms (767 samples)
+  #   9 layers: 34.8ms (1535 samples)
+  #   10 layers: 69.6ms (3071 samples)
+
+  # Channel counts to explore (affects CPU usage and model capacity)
+  channels: [12, 16, 20, 24, 28, 32, 40, 48, 56, 64]
+
+  # Kernel sizes (odd numbers for symmetric padding)
+  kernel_size: [3, 5]  # Explore both standard and larger kernels
+
+  # Fixed parameters (for real-time focus)
+  dilation_base: 2  # Standard 2^i dilation pattern
+  causal: true      # REQUIRED for real-time processing
+
+# Constraints and filtering
+constraints:
+  max_latency_ms: 40.0  # Allow deeper networks for quality exploration
+  max_params: 250000    # Allow larger models
+  min_params: 3000      # Allow smaller models for speed testing
+
+# Phase 1: Quick Scan (eliminate poor architectures early)
+phase1:
+  num_epochs: 50
+  patience: 10  # Aggressive early stopping
+  checkpoint_every: 10
+  # Training hyperparameters
+  batch_size: 48
+  learning_rate: 0.003
+  weight_decay: 0.00005
+  # Filtering after Phase 1
+  keep_top_percent: 50  # Keep best 50% by validation loss
+
+# Phase 2: Full Training (train promising architectures to convergence)
+phase2:
+  num_epochs: 2000
+  patience: 100  # Allow proper convergence
+  checkpoint_every: 10
+  # Training hyperparameters (same as Phase 1)
+  batch_size: 48
+  learning_rate: 0.003
+  weight_decay: 0.00005
+
+# Loss function
+loss:
+  type: "esr"  # Error-to-signal ratio
+
+# Output paths
+paths:
+  # Directory for generated configs
+  config_dir: "configs/search"
+  config_dir_filtered: "configs/search/filtered"
+
+  # Results directory
+  results_dir: "results/search"
+  results_csv: "results/search/search_results.csv"
+  results_summary: "results/search/summary.md"
+
+  # Model storage (each model gets its own directory)
+  model_dir: "models/{model_name}"
+  checkpoint_dir: "models/{model_name}/checkpoints"
+  best_model: "models/{model_name}/best_model.pt"
+  tensorboard_dir: "runs/search/{model_name}"
+
+# Benchmarking settings
+benchmark:
+  chunk_size: 512  # samples per chunk for real-time simulation
+  num_chunks: 100  # number of chunks to benchmark
+  warmup_chunks: 10  # warmup iterations before timing
+  device: "cpu"  # Benchmark on CPU for real-world performance
+
+# Logging
+logging:
+  level: "INFO"
+  log_file: "results/search/multi_train.log"
