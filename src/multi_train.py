@@ -24,10 +24,8 @@ from search_space import generate_search_space, save_configs, print_search_space
 from benchmark import benchmark_inference, count_parameters
 from export_plugin_weights import export_for_plugin
 
-
-def esr_loss(pred, target):
-    """Error-to-Signal Ratio loss"""
-    return torch.mean((pred - target) ** 2) / (torch.mean(target**2) + 1e-8)
+# Import loss functions from train.py
+from train import esr_loss, spectral_loss, hybrid_loss, get_loss_function
 
 
 def train_single_model(config_path: str, phase: str = 'phase2',
@@ -132,6 +130,9 @@ def train_single_model(config_path: str, phase: str = 'phase2',
         min_lr=1e-6
     )
 
+    # Get loss function from config
+    loss_fn = get_loss_function(config)
+
     # TensorBoard writer
     writer = SummaryWriter(str(tensorboard_dir))
 
@@ -160,7 +161,7 @@ def train_single_model(config_path: str, phase: str = 'phase2',
 
             # Forward pass
             output = model(input_audio)
-            loss = esr_loss(output, target_audio)
+            loss = loss_fn(output, target_audio)
 
             # Backward pass
             optimizer.zero_grad()
@@ -184,7 +185,7 @@ def train_single_model(config_path: str, phase: str = 'phase2',
                 target_audio = target_audio.to(device)
 
                 output = model(input_audio)
-                loss = esr_loss(output, target_audio)
+                loss = loss_fn(output, target_audio)
                 total_val_loss += loss.item()
                 val_pbar.set_postfix({'loss': f'{loss.item():.6f}'})
 

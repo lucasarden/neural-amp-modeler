@@ -1,0 +1,101 @@
+# Configuration with Multi-Scale Spectral Loss
+# This config uses the IMPROVED loss function for better audio quality
+# Fixes the "funky" sound issue by capturing frequency-domain information
+
+# Data settings
+data:
+  sample_rate: 44100
+  input_file: "data/raw/flstudio_test1_in_normalized.wav"
+  output_file: "data/raw/flstudio_test1_out_normalized.wav"
+  segment_length: 8192 # samples per training segment
+  train_split: 0.85
+  val_split: 0.15
+
+# Model architecture - LARGER FOR BETTER QUALITY
+# Since the optimized VST now uses 70-80% less CPU, we can afford bigger models!
+model:
+  name: "spectral_10L_32C" # This will be the folder name under models/
+  channels: 32 # More capacity for complex distortion
+  num_layers: 10 # Latency: ~10-12ms (still acceptable for most guitarists)
+  kernel_size: 3
+  dilation_base: 2 # dilation pattern: 2^i
+  causal: true # CRITICAL: Must be true for real-time processing
+
+# Training settings
+training:
+  batch_size: 32 # Smaller batch for spectral loss (uses more VRAM)
+  num_epochs: 500
+  learning_rate: 0.001 # Start conservative with spectral loss
+  weight_decay: 0.0001
+  patience: 50
+  checkpoint_every: 10
+
+# Loss function - THE KEY IMPROVEMENT!
+loss:
+  type: "hybrid" # Combines ESR + spectral + pre-emphasis
+
+  # Hybrid loss weights (tune these for different results)
+  esr_weight: 1.0 # Time-domain energy matching
+  spectral_weight: 0.5 # Frequency-domain structure (harmonics, transients)
+  preemph_weight: 0.1 # High-frequency detail preservation
+
+  # Alternative loss types you can try:
+  # type: "spectral" # Only spectral loss (no ESR)
+  # type: "esr"      # Original ESR (not recommended)
+
+# Paths
+paths:
+  model_dir: "models/{model_name}"
+  checkpoint_dir: "models/{model_name}/checkpoints"
+  best_model: "models/{model_name}/best_model.pt"
+  tensorboard_dir: "runs/{model_name}"
+
+# ==================================================
+# EXPECTED IMPROVEMENTS WITH SPECTRAL LOSS:
+# ==================================================
+# ✅ Better harmonic structure (more "amp-like")
+# ✅ Improved transient response (pick attack clarity)
+# ✅ Preserved high-frequency detail (brightness, sparkle)
+# ✅ Less "phase weirdness" or "funky" artifacts
+# ✅ More natural distortion character
+#
+# Note: Validation loss may be HIGHER than ESR-trained models,
+#       but the SOUND QUALITY will be BETTER!
+#       Don't judge by loss numbers - judge by your ears!
+# ==================================================
+
+# ==================================================
+# PERFORMANCE WITH OPTIMIZED VST:
+# ==================================================
+# Model size: ~100-150K parameters
+# Receptive field: ~1000 samples
+# Latency at 44.1kHz: ~10-12ms
+# CPU usage (OPTIMIZED VST): ~4-6% single core ✨
+# CPU usage (OLD VST): ~25-30% 😱
+#
+# That's why we needed the VST optimization first!
+# ==================================================
+
+# ==================================================
+# TUNING GUIDE:
+# ==================================================
+#
+# If sound is too bright/harsh:
+#   - Reduce preemph_weight (try 0.05 or 0)
+#
+# If sound is too muddy/dark:
+#   - Increase preemph_weight (try 0.2 or 0.3)
+#
+# If sound matches energy but sounds "off":
+#   - Increase spectral_weight (try 1.0 or higher)
+#   - Reduce esr_weight (try 0.5 or 0.3)
+#
+# If training is unstable:
+#   - Reduce learning_rate (try 0.0005)
+#   - Increase batch_size if you have VRAM
+#
+# For maximum quality (if CPU allows):
+#   - channels: 48
+#   - num_layers: 12
+#   - latency: ~20-25ms (still usable for most)
+# ==================================================

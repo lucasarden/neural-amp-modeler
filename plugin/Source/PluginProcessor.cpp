@@ -224,7 +224,10 @@ void NeuralVoxModelerAudioProcessor::changeProgramName(int index,
 //==============================================================================
 void NeuralVoxModelerAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    juce::ignoreUnused(sampleRate, samplesPerBlock);
+    juce::ignoreUnused(sampleRate);
+
+    // Pre-allocate dry buffer (avoid allocation in processBlock)
+    dryBuffer.resize(samplesPerBlock);
 
     // Reset neural model state
     if (modelLoaded)
@@ -269,23 +272,36 @@ void NeuralVoxModelerAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
         return;
     }
 
-    // Process each sample
-    for (int i = 0; i < numSamples; ++i)
+    // OPTIMIZED: Buffer-based processing instead of sample-by-sample
+    // This is the critical performance improvement!
+
+    // Ensure dry buffer is large enough
+    if (dryBuffer.size() < static_cast<size_t>(numSamples))
+        dryBuffer.resize(numSamples);
+
+    // Save dry signal for wet/dry mixing (no allocation!)
+    std::memcpy(dryBuffer.data(), channelData, numSamples * sizeof(float));
+
+    // Apply input gain (vectorized operation)
+    juce::FloatVectorOperations::multiply(channelData, inputGain, numSamples);
+
+    // Process through neural network (entire buffer at once!)
+    neuralModel.processBuffer(channelData, numSamples);
+
+    // Apply output gain (vectorized operation)
+    juce::FloatVectorOperations::multiply(channelData, outputGain, numSamples);
+
+    // Mix wet/dry (vectorized operations)
+    if (mix < 1.0f)
     {
-        float input = channelData[i];
-        float dry = input;
+        // wet = wet * mix
+        juce::FloatVectorOperations::multiply(channelData, mix, numSamples);
 
-        // Apply input gain
-        input *= inputGain;
+        // dry = dry * (1 - mix)
+        juce::FloatVectorOperations::multiply(dryBuffer.data(), 1.0f - mix, numSamples);
 
-        // Process through neural network
-        float wet = neuralModel.processSample(input);
-
-        // Apply output gain
-        wet *= outputGain;
-
-        // Mix wet/dry
-        channelData[i] = dry * (1.0f - mix) + wet * mix;
+        // output = wet + dry
+        juce::FloatVectorOperations::add(channelData, dryBuffer.data(), numSamples);
     }
 }
 

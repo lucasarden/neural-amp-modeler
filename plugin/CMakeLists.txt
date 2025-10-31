@@ -75,6 +75,33 @@ PUBLIC
     juce::juce_recommended_warning_flags
 )
 
+# OPTIMIZATION FLAGS for maximum performance
+if(MSVC)
+    # Microsoft Visual C++ optimizations
+    target_compile_options(NeuralVoxModeler PRIVATE
+        /O2          # Maximum optimization
+        /Oi          # Enable intrinsic functions
+        /Ot          # Favor fast code
+        /arch:AVX2   # Enable AVX2 instructions (SIMD)
+        /fp:fast     # Fast floating-point model
+        /GL          # Whole program optimization
+    )
+    target_link_options(NeuralVoxModeler PRIVATE
+        /LTCG        # Link-time code generation
+    )
+else()
+    # GCC/Clang optimizations
+    target_compile_options(NeuralVoxModeler PRIVATE
+        -O3                 # Maximum optimization
+        -ffast-math         # Fast floating-point (trade precision for speed)
+        -march=native       # Optimize for CPU architecture
+        -mtune=native       # Tune for CPU architecture
+        -funroll-loops      # Unroll loops
+        -fno-signed-zeros   # Assume no signed zeros
+        -fno-trapping-math  # Don't trap on math errors
+    )
+endif()
+
 # Copy resources (model.json) to build directory
 add_custom_command(TARGET NeuralVoxModeler POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory
